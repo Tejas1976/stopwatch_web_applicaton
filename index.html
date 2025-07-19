@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Precision Stopwatch</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;500;700&display=swap');
+        
+        body {
+            font-family: 'Roboto Mono', monospace;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #e6e6e6;
+        }
+
+        .stopwatch-container {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .time-display {
+            font-size: 4rem;
+            font-weight: 300;
+            text-align: center;
+            padding: 1.5rem 0;
+            background: rgba(0, 0, 0, 0.2);
+            margin-bottom: 1rem;
+        }
+
+        .milliseconds {
+            font-size: 2rem;
+            vertical-align: top;
+            margin-left: -0.5rem;
+        }
+
+        .button {
+            padding: 0.8rem 1.5rem;
+            margin: 0 0.5rem;
+            border: none;
+            border-radius: 50px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.9rem;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .button:active {
+            transform: translateY(0);
+        }
+
+        .start-btn {
+            background: #4ade80;
+            color: #052e16;
+        }
+
+        .stop-btn {
+            background: #f87171;
+            color: #450a0a;
+        }
+
+        .reset-btn {
+            background: #60a5fa;
+            color: #172554;
+        }
+
+        .lap-btn {
+            background: #a78bfa;
+            color: #2e1065;
+        }
+
+        .lap-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1rem 0;
+        }
+
+        .lap-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .lap-number {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .fastest-lap {
+            color: #4ade80;
+            font-weight: bold;
+        }
+
+        .slowest-lap {
+            color: #f87171;
+            font-weight: bold;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            padding: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .header img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+
+        .divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 1rem 0;
+        }
+
+        @media (max-width: 480px) {
+            .time-display {
+                font-size: 3rem;
+            }
+            
+            .milliseconds {
+                font-size: 1.5rem;
+            }
+            
+            .button {
+                padding: 0.7rem 1rem;
+                margin: 0.3rem;
+                font-size: 0.8rem;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="stopwatch-container">
+        <div class="header">
+            <img src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/7da88e31-c4ac-4934-8012-1b0346aa4017.png" alt="Abstract digital clock with neon lights and futuristic interface elements" />
+        </div>
+        <div class="time-display">
+            <span id="display">00:00:00</span><span class="milliseconds" id="milliseconds">.00</span>
+        </div>
+        <div class="controls">
+            <button id="startBtn" class="button start-btn">Start</button>
+            <button id="stopBtn" class="button stop-btn" disabled>Stop</button>
+            <button id="resetBtn" class="button reset-btn" disabled>Reset</button>
+            <button id="lapBtn" class="button lap-btn" disabled>Lap</button>
+        </div>
+        <div class="divider"></div>
+        <div class="lap-list" id="lapList">
+            <div class="lap-item">
+                <span class="lap-number">Lap Times</span>
+                <span>Time</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let startTime;
+        let elapsedTime = 0;
+        let timerInterval;
+        let laps = [];
+        let isRunning = false;
+        
+        // DOM Elements
+        const display = document.getElementById('display');
+        const millisecondsDisplay = document.getElementById('milliseconds');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const lapBtn = document.getElementById('lapBtn');
+        const lapList = document.getElementById('lapList');
+        
+        // Format time
+        function formatTime(time) {
+            const date = new Date(time);
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+            const seconds = date.getSeconds().toString().padStart(2, '0');
+            const milliseconds = Math.floor(date.getMilliseconds() / 10).toString().padStart(2, '0');
+            return `${minutes}:${seconds}.${milliseconds}`;
+        }
+        
+        // Format display time (without milliseconds)
+        function formatDisplayTime(time) {
+            const hours = Math.floor(time / 3600000).toString().padStart(2, '0');
+            const minutes = Math.floor((time % 3600000) / 60000).toString().padStart(2, '0');
+            const seconds = Math.floor((time % 60000) / 1000).toString().padStart(2, '0');
+            return `${hours}:${minutes}:${seconds}`;
+        }
+        
+        // Format milliseconds
+        function formatMilliseconds(time) {
+            const milliseconds = Math.floor((time % 1000) / 10).toString().padStart(2, '0');
+            return `.${milliseconds}`;
+        }
+        
+        // Update display
+        function updateDisplay() {
+            display.textContent = formatDisplayTime(elapsedTime);
+            millisecondsDisplay.textContent = formatMilliseconds(elapsedTime);
+        }
+        
+        // Start timer
+        function startTimer() {
+            if (!isRunning) {
+                startTime = Date.now() - elapsedTime;
+                timerInterval = setInterval(function() {
+                    elapsedTime = Date.now() - startTime;
+                    updateDisplay();
+                }, 10);
+                isRunning = true;
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                resetBtn.disabled = false;
+                lapBtn.disabled = false;
+            }
+        }
+        
+        // Stop timer
+        function stopTimer() {
+            if (isRunning) {
+                clearInterval(timerInterval);
+                isRunning = false;
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            }
+        }
+        
+        // Reset timer
+        function resetTimer() {
+            clearInterval(timerInterval);
+            elapsedTime = 0;
+            updateDisplay();
+            isRunning = false;
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            resetBtn.disabled = true;
+            lapBtn.disabled = true;
+            laps = [];
+            updateLapList();
+        }
+        
+        // Record lap
+        function recordLap() {
+            if (isRunning || elapsedTime > 0) {
+                const lapTime = elapsedTime;
+                laps.unshift({
+                    time: lapTime,
+                    formattedTime: formatTime(lapTime)
+                });
+                updateLapList();
+            }
+        }
+        
+        // Update lap list
+        function updateLapList() {
+            if (laps.length === 0) {
+                lapList.innerHTML = `<div class="lap-item"><span class="lap-number">Lap Times</span><span>Time</span></div>`;
+                return;
+            }
+            
+            let lapItems = '<div class="lap-item"><span class="lap-number">Lap No.</span><span>Time</span></div>';
+            
+            // Find fastest and slowest laps
+            let fastestIndex = 0;
+            let slowestIndex = 0;
+            
+            if (laps.length > 1) {
+                for (let i = 1; i < laps.length; i++) {
+                    if (laps[i].time < laps[fastestIndex].time) {
+                        fastestIndex = i;
+                    }
+                    if (laps[i].time > laps[slowestIndex].time) {
+                        slowestIndex = i;
+                    }
+                }
+            }
+            
+            laps.forEach((lap, index) => {
+                let lapClass = '';
+                if (laps.length > 1) {
+                    if (index === fastestIndex) {
+                        lapClass = 'fastest-lap';
+                    } else if (index === slowestIndex) {
+                        lapClass = 'slowest-lap';
+                    }
+                }
+                
+                lapItems += `
+                    <div class="lap-item">
+                        <span class="lap-number">${laps.length - index}</span>
+                        <span class="${lapClass}">${lap.formattedTime}</span>
+                    </div>
+                `;
+            });
+            
+            lapList.innerHTML = lapItems;
+        }
+        
+        // Event listeners
+        startBtn.addEventListener('click', startTimer);
+        stopBtn.addEventListener('click', stopTimer);
+        resetBtn.addEventListener('click', resetTimer);
+        lapBtn.addEventListener('click', recordLap);
+        
+        // Initialize
+        updateDisplay();
+    </script>
+</body>
+</html>
+
